@@ -45,7 +45,7 @@ public class BigQueryIOReadIT {
   private BigQueryIOReadOptions options;
   private String project;
   private static final String datasetId = "big_query_import_export";
-  private static final String tablePrefix = "export_";
+  private static final String tablePrefix = "parallel_read_";
   private static final Map<String, Long> numOfRecords =
       ImmutableMap.<String, Long>of(
           "empty", 0L,
