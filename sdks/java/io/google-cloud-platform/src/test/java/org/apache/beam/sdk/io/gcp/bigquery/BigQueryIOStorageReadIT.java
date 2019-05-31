@@ -52,8 +52,8 @@ public class BigQueryIOStorageReadIT {
           "1G", 11110839L,
           "1T", 11110839000L);
 
-  private static final String DATASET_ID = "big_query_storage";
-  private static final String TABLE_PREFIX = "storage_read_";
+  private static final String DATASET_ID = "big_query_import_export";
+  private static final String TABLE_PREFIX = "parallel_read_";
 
   private BigQueryIOStorageReadOptions options;
 

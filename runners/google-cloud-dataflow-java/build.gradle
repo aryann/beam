@@ -326,7 +326,7 @@ task googleCloudPlatformLegacyWorkerIntegrationTest(type: Test) {
           "--workerHarnessContainerImage=",
   ])
 
-  include '**/*IT.class'
+  include '**/BigQueryIOStorageReadIT.class'
   exclude '**/BigQueryIOReadIT.class'
   exclude '**/BigQueryIOStorageReadTableRowIT.class'
   exclude '**/PubsubReadIT.class'
