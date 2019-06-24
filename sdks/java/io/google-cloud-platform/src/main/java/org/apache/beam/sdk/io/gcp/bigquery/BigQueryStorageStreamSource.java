@@ -30,6 +30,7 @@ import com.google.cloud.bigquery.storage.v1beta1.Storage.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.SplitReadStreamResponse;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.Stream;
 import com.google.cloud.bigquery.storage.v1beta1.Storage.StreamPosition;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.UnknownFieldSet;
 import java.io.IOException;
 import java.util.Iterator;
@@ -164,6 +165,7 @@ public class BigQueryStorageStreamSource<T> extends BoundedSource<T> {
     private GenericRecord record;
     private T current;
     private long currentOffset;
+    private double progress;
 
     private BigQueryStorageStreamReader(
         BigQueryStorageStreamSource<T> source, BigQueryOptions options) throws IOException {
@@ -174,6 +176,7 @@ public class BigQueryStorageStreamSource<T> extends BoundedSource<T> {
       this.parseFn = source.parseFn;
       this.storageClient = source.bqServices.getStorageClient(options);
       this.tableSchema = fromJsonString(source.jsonTableSchema, TableSchema.class);
+      this.progress = 0d;
     }
 
     @Override
@@ -201,15 +204,16 @@ public class BigQueryStorageStreamSource<T> extends BoundedSource<T> {
     private synchronized boolean readNextRecord() throws IOException {
       while (decoder == null || decoder.isEnd()) {
         if (!responseIterator.hasNext()) {
+          progress = 1d;
           return false;
         }
 
         ReadRowsResponse nextResponse = responseIterator.next();
-
         decoder =
             DecoderFactory.get()
                 .binaryDecoder(
                     nextResponse.getAvroRows().getSerializedBinaryRows().toByteArray(), decoder);
+        progress = getFractionConsumed(nextResponse);
       }
 
       record = datumReader.read(record, decoder);
@@ -323,6 +327,24 @@ public class BigQueryStorageStreamSource<T> extends BoundedSource<T> {
       LOGGER.info(
           "Successfully split BigQuery Storage API stream. Split response: {}", splitResponse);
       return source.fromExisting(splitResponse.getRemainderStream());
+    }
+
+    @Override
+    public synchronized Double getFractionConsumed() {
+      return progress;
+    }
+
+    private static float getFractionConsumed(ReadRowsResponse response) {
+      // TODO(aryann): Once we rebuild the generated client code, we should change this to
+      // use getFractionConsumed().
+      List<Integer> fractionConsumedField =
+          response.getStatus().getUnknownFields().getField(2).getFixed32List();
+      if (fractionConsumedField.isEmpty()) {
+        Metrics.counter(BigQueryStorageStreamReader.class, "fraction-consumed-not-set").inc();
+        return 0f;
+      }
+
+      return Float.intBitsToFloat(Iterables.getOnlyElement(fractionConsumedField));
     }
   }
 }
